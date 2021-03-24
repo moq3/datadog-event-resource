@@ -13,7 +13,7 @@ import (
 
 	"bytes"
 
-	"github.com/concourse/datadog-event-resource/cmd"
+	"github.com/moq3/datadog-event-resource/cmd"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/ghttp"
 )
@@ -41,7 +41,7 @@ var _ = BeforeEach(func() {
 	if _, err = os.Stat("/opt/resource/check"); err == nil {
 		binPath = "/opt/resource/check"
 	} else {
-		binPath, err = gexec.Build("github.com/concourse/datadog-event-resource/cmd/check")
+		binPath, err = gexec.Build("github.com/moq3/datadog-event-resource/cmd/check")
 		Expect(err).NotTo(HaveOccurred())
 	}
 })
