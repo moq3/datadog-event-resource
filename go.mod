@@ -1,4 +1,4 @@
-module github.com/concourse/datadog-event-resource
+module github.com/moq3/datadog-event-resource
 
 go 1.16
 
