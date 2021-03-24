@@ -10,7 +10,7 @@ import (
 
 	"time"
 
-	"github.com/concourse/datadog-event-resource/cmd"
+	"github.com/moq3/datadog-event-resource/cmd"
 	"github.com/zorkian/go-datadog-api"
 )
 
