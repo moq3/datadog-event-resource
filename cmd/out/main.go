@@ -67,6 +67,7 @@ func ConvertParamsToEvent(p cmd.OutParams, artifactDirectory string) (datadog.Ev
 	var (
 		e datadog.Event
 	)
+	e.Title = p.Title
 	e.Title = os.Expand(e.Title, func(v string) string {
 		switch v {
 		case "BUILD_ID", "BUILD_NAME", "BUILD_JOB_NAME", "BUILD_PIPELINE_NAME", "BUILD_TEAM_NAME", "ATC_EXTERNAL_URL":
