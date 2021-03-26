@@ -1,0 +1,90 @@
+#fly --target comcast-ci login --concourse-url https://ci.comcast.net --team-name martechccdh --open-browser
+#fly set-pipeline -t comcast-ci -c pipeline.yml -p build-scala -l credentials.yml
+#fly -t comcast-ci unpause-pipeline -p build-scala
+#fly -t comcast-ci tj -j build-scala/build-scala
+resource_types:
+- name: teams-notification
+  type: docker-image
+  source:
+    repository: navicore/teams-notification-resource #Docker Image Repo for Teams notifications
+    tag: latest
+- name: datadog-event
+  type: registry-image
+  source:
+    repository: docker.io/omersaleemq/datadog-event-resource-3 #Docker Image Repo for Datadog notifications
+    tag: latest
+
+resources:
+- name: source-git
+  type: git
+  source:
+    uri: ((git-uri)) #Github Repo address for Scala project to be built
+    branch: master
+- name: datadog-alert
+  type: datadog-event
+  source:
+    api_key: ((datadog.api-key)) # Datadog API Key from Vault
+    application_key: ((datadog.application-key)) # Datadog Application Key from Vault
+    filter: "event-.*-regexp"
+- name: teams-alert
+  type: teams-notification
+  source:
+    url: ((webhook)) #Teams webhook URL from credentials.yml file
+jobs:
+  - name: build-scala
+    serial: true
+    on_success:
+      do: #using "do" for multiple Puts
+        - put: datadog-alert
+          params:
+            source_type_name: Concourse
+            priority: normal
+            text: Scala SBT concourse pipeline $BUILD_PIPELINE_NAME  Job $BUILD_JOB_NAME Build POC is Successfull
+            title: Scala Build Successfull for build_id $BUILD_ID build_name $BUILD_NAME build_job_name $BUILD_JOB_NAME!
+            tags: ['environment:prod', 'build_id:$BUILD_ID', 'build_name:$BUILD_NAME', 'build_pipeline_name:$BUILD_PIPELINE_NAME', 'build_job_name:$BUILD_JOB_NAME']
+            alert_type: success
+        - put: teams-alert
+          params:
+            text: Scala SBT concourse pipeline $BUILD_PIPELINE_NAME  Job $BUILD_JOB_NAME Build POC is Successfull
+            title: Scala Build Successfull
+            actionName: Pipeline Pipeline #this creates a button in Teams alert with caption "Pipeline"
+            actionTarget: $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+
+    on_failure:
+      do: #using "do" for multiple Puts
+        - put: datadog-alert
+          params:
+            source_type_name: Concourse
+            priority: normal
+            text: Scala SBT concourse pipeline $BUILD_PIPELINE_NAME  Job $BUILD_JOB_NAME Build POC Failed!
+            title: Scala Build Failed for build_id $BUILD_ID build_name $BUILD_NAME build_job_name $BUILD_JOB_NAME!
+            tags: ['environment:prod', 'build_id:$BUILD_ID', 'build_name:$BUILD_NAME', 'build_pipeline_name:$BUILD_PIPELINE_NAME', 'build_job_name:$BUILD_JOB_NAME']
+            alert_type: error
+        - put: teams-alert
+          params:
+            text: Scala SBT concourse pipeline $BUILD_PIPELINE_NAME  Job $BUILD_JOB_NAME Build POC is Failed
+            title:   Scala Build Failed
+            actionName: Pipeline #this creates a button in Teams alert with caption "Pipeline"
+            actionTarget: $ATC_EXTERNAL_URL/teams/$BUILD_TEAM_NAME/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+    plan:
+      - get: source-git
+      - task: Build JAR
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source: {repository: amazonlinux}
+          inputs:
+            - name: source-git
+          run:
+            dir: source-git
+            path: sh
+            args:
+              - -exc
+              - |
+                yum install java-1.8.0-openjdk -y
+                curl https://bintray.com/sbt/rpm/rpm | tee /etc/yum.repos.d/bintray-sbt-rpm.repo
+                yum install sbt -y
+                yum install -y http://downloads.lightbend.com/scala/2.11.8/scala-2.11.8.rpm
+                sbt package test_fail
+                scala target/scala-2.11/simple-scala-project_2.11-1.0.jar
