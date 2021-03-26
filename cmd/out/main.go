@@ -99,6 +99,16 @@ func ConvertParamsToEvent(p cmd.OutParams, artifactDirectory string) (datadog.Ev
 	e.Aggregation = p.Aggregation
 	e.SourceType = p.SourceType
 	e.Tags = p.Tags
+	for i, s := range e.Tags {
+		s = os.Expand(s, func(v string) string {
+		switch v {
+		case "BUILD_ID", "BUILD_NAME", "BUILD_JOB_NAME", "BUILD_PIPELINE_NAME", "BUILD_TEAM_NAME", "ATC_EXTERNAL_URL":
+			return os.Getenv(v)
+		}
+		return "$" + v
+	})
+	e.Tags[i] = s
+	}
 
 	return e, nil
 }
